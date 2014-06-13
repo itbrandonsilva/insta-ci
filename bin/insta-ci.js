@@ -7,8 +7,11 @@ exec = function () {
     var orig = exec;
     return function (cmd, cb) {
         orig.call(this, cmd, function (err, stdout, stderr) {
-            console.log('stdout: ');
-            console.log(stdout);
+            if (debug) {
+                console.log("Error: "); console.log(err);
+                console.log("stdout: "); console.log(stdout);
+                console.log("stderr: "); console.log(stderr);
+            }
             if (stderr) return cb(stderr, stdout, stderr);
             cb(err, stdout, stderr);
         });
@@ -19,6 +22,7 @@ var async = require('async');
 var program = require('commander')
     .version('0.0.1')
     .option('-n, --new', 'Create config file.')
+    .option('-d, --debug', 'Print debug information to the console.')
     .parse(process.argv);
 
 var winston = require('winston');
@@ -41,6 +45,9 @@ if (program.new) {
     }, null, '\t'));
     process.exit(0);
 }
+
+var debug = false;
+if (program.debug) debug = true;
 
 var config = require(process.cwd() + "/.instaci.json");
 
