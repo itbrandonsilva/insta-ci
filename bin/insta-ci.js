@@ -12,7 +12,7 @@ exec = function () {
                 console.log("stdout: "); console.log(stdout);
                 console.log("stderr: "); console.log(stderr);
             }
-            if (stderr) return cb(stderr, stdout, stderr);
+            //if (stderr) return cb(stderr, stdout, stderr);
             cb(err, stdout, stderr);
         });
     };
