@@ -83,6 +83,7 @@ http.createServer(function (req, res) {
     console.log(req.method + ": " + req.url);
 
     var app = resolve(req.url);
+    res.writeHead(200);
     if (app) res.write('ok');
     else res.write('invalid');
     res.end();
