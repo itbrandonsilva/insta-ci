@@ -80,6 +80,8 @@ function resolve(path) {
 http.createServer(function (req, res) {
     if (req.path == "/favicon.ico") return res.end();
 
+    console.log(req.method + ": " + req.url);
+
     var app = resolve(req.url);
     if (app) res.write('ok');
     else res.write('invalid');
@@ -89,6 +91,8 @@ http.createServer(function (req, res) {
     console.log('');
     console.log('');
     console.log('----------------------');
+    console.log(new Date().toString());
+    console.log('');
 
     try {
         process.chdir(app.path);
@@ -98,6 +102,7 @@ http.createServer(function (req, res) {
             function (cb) { console.log('Stopping ' + app.name); exec(app.stop, cb); },
             function (cb) { console.log('Starting ' + app.name); exec(app.start, cb); },
         ], function (err) {
+            console.log('');
             process.chdir(cwd);
             if (err) {
                 console.error("Build failed for " + app.name);
@@ -113,6 +118,4 @@ http.createServer(function (req, res) {
 }).listen(config.port, config.host);
 
 console.log('Server running at http://' + config.host + ":" + config.port);
-console.log(process.env['PATH']);
-
-
+console.log('');
