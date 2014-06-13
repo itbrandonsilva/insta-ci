@@ -1,4 +1,4 @@
-//#!/usr/bin/env node
+#!/usr/bin/env node
 
 var http = require('http');
 var exec = require('child_process').exec;
