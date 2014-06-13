@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 var http = require('http');
+var fs = require('fs');
 var exec = require('child_process').exec;
 exec = function () {
     var orig = exec;
@@ -15,9 +16,32 @@ exec = function () {
 }();
 
 var async = require('async');
-var commander = require('commander');
-var config = require(process.cwd() + "/.instaci.json");
+var program = require('commander')
+    .version('0.0.1')
+    .option('-n, --new', 'Create config file.')
+    .parse(process.argv);
 
+var winston = require('winston');
+
+if (program.new) {
+    var cfgPath = process.cwd() + "/.instaci.json";
+    console.log("Writing insta-ci config: " + cfgPath);
+    var result = fs.writeFileSync(cfgPath, JSON.stringify({
+        "host": "127.0.0.1",
+        "port": 11001,
+        "apps": {
+            "yourapp": {
+                "start": "start.js",
+                "stop": "stop.js",
+                "build": "build.js",
+                "test": "test.js",
+            },
+        },
+    }, null, '\t'));
+    process.exit(0);
+}
+
+var config = require(process.cwd() + "/.instaci.json");
 
 var cwd = process.cwd();
 

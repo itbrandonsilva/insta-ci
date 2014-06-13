@@ -5,8 +5,9 @@
     "version": "0.0.1",
     "description": "A simple CI server.",
     "dependencies": {
-        "async": "^0.9.0",
-        "commander": "^2.2.0"
+    "async": "^0.9.0",
+        "commander": "^2.2.0",
+        "winston": "^0.7.3"
     },
     "bin": {
         "insta-ci": "./bin/insta-ci.js"
