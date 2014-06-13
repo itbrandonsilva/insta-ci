@@ -31,6 +31,7 @@ if (program.new) {
         "port": 11001,
         "apps": {
             "yourapp": {
+                "path": "/yourpath",
                 "start": "start.js",
                 "stop": "stop.js",
                 "build": "build.js",
