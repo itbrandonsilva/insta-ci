@@ -80,7 +80,7 @@ var mailer = {
 
             var subject = "Build " + (options.error ? "failed: " : "successful: ") + options.appName;
     
-            config.mailer.settings.recipients.forEach(function (recipient) {
+            config.mailer.recipients.forEach(function (recipient) {
                 transport.sendMail({
                     from: "Brandon Silva <build@brandonsilva.net>",
                     to: recipient,
