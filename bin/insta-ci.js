@@ -63,14 +63,33 @@ var mailer = {
     if ( ! config.mailer ) return;
     transport = nodemailer.createTransport("SMTP", config.mailer.settings);
     console.log("Mailer configured.");
-    mailer.send = function (options, cb) {
-        transport.sendMail({
-            from: "Brandon Silva <ohsnap@gmail.com>",
-            to: "Brandon Silva <itbrandonsilva@gmail.com",
-            subject: "Build complete!?!?",
-            text: "Text version.",
-            html: "The html version.",
-        }, cb);
+
+    /* Options
+
+        {
+            error: [Object],
+            appName: String
+        }
+
+    */
+
+    mailer.send = function (options) {
+        var view; options.error ? view = config.mailer.views.error : view = config.mailer.views.success;
+        jade.renderFile(view, {error: options.error.message}, function (err, html) {
+            if (err) return console.error(err) ;
+
+            var subject = "Build " + (options.error ? "failed: " : "successful: ") + options.appName;
+    
+            config.mailer.settings.recipients.forEach(function (recipient) {
+                transport.sendMail({
+                    from: "Brandon Silva <build@brandonsilva.net>",
+                    to: recipient,
+                    subject: subject,
+                    text: "Text version unavailable.",
+                    html: html,
+                });
+            });
+        });
     };
 }());
 
@@ -136,9 +155,11 @@ http.createServer(function (req, res) {
             process.chdir(cwd);
             if (err) {
                 console.error("Build failed for " + app.name);
-                return console.error(err);
+                console.error(err);
+                return mailer.send({error: err, appName: app.name});
             }
             console.log("Successfully built: " + app.name);
+            return mailer.send({appName: app.name});
         });
     } catch (e) {
         console.log("Caught exception: ");
@@ -152,8 +173,6 @@ console.log('');
 
 var request = require('request');
 Object.keys(config.apps).forEach(function (app) {
-    var url = "http://" + config.host + ":" + config.port + "/update/" + app
-    console.log(url);
+    var url = "http://" + config.host + ":" + config.port + "/update/" + app;
     request(url, function () {});
 });
-
