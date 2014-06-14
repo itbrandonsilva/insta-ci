@@ -75,7 +75,7 @@ var mailer = {
 
     mailer.send = function (options) {
         var view; options.error ? view = config.mailer.views.error : view = config.mailer.views.success;
-        jade.renderFile(view, {error: options.error.message}, function (err, html) {
+        jade.renderFile(view, {error: options.error ? options.error.message : null}, function (err, html) {
             if (err) return console.error(err) ;
 
             var subject = "Build " + (options.error ? "failed: " : "successful: ") + options.appName;
