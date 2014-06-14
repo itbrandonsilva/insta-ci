@@ -88,7 +88,6 @@ var mailer = {
                     text: "Text version unavailable.",
                     html: html,
                 }, function (err) {
-                    console.log("Error!?!?!?");
                     if (err) return console.error(err);
                     console.log( (options.error ? "Error" : "Success") + " email sent to " + recipient + "." );
                 });
