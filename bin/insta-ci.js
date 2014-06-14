@@ -52,7 +52,7 @@ if (program.new) {
 var debug = false;
 if (program.debug) debug = true;
 
-var config = require(process.cwd() + "/.instaci.json");
+var config = require(process.cwd() + "/instaci/config.json");
 if ( ! config.apps || ! Object.keys(config.apps).length ) return console.error("No apps specified.");
 
 var mailer = {
