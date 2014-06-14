@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+console.log('');
 
 var http = require('http');
 var fs = require('fs');
@@ -26,6 +27,8 @@ var program = require('commander')
     .parse(process.argv);
 
 var winston = require('winston');
+var nodemailer = require('nodemailer');
+var jade = require('jade');
 
 if (program.new) {
     var cfgPath = process.cwd() + "/.instaci.json";
@@ -50,6 +53,26 @@ var debug = false;
 if (program.debug) debug = true;
 
 var config = require(process.cwd() + "/.instaci.json");
+if ( ! config.apps || ! Object.keys(config.apps).length ) return console.error("No apps specified.");
+
+var mailer = {
+    send: function (options, cb) {cb()},
+};
+
+(function () {
+    if ( ! config.mailer ) return;
+    transport = nodemailer.createTransport("SMTP", config.mailer.settings);
+    console.log("Mailer configured.");
+    mailer.send = function (options, cb) {
+        transport.sendMail({
+            from: "Brandon Silva <ohsnap@gmail.com>",
+            to: "Brandon Silva <itbrandonsilva@gmail.com",
+            subject: "Build complete!?!?",
+            text: "Text version.",
+            html: "The html version.",
+        }, cb);
+    };
+}());
 
 var cwd = process.cwd();
 
@@ -59,7 +82,6 @@ var instaci = {
 };
 
 (function () {
-    console.log('');
     if ( ! config.host ) throw new Error("Missing host param.");
     if ( ! config.port ) throw new Error("Missing port param.");
     Object.keys(config.apps).forEach(function (appName) {
@@ -127,3 +149,11 @@ http.createServer(function (req, res) {
 
 console.log('Server running at http://' + config.host + ":" + config.port);
 console.log('');
+
+var request = require('request');
+Object.keys(config.apps).forEach(function (app) {
+    var url = "http://" + config.host + ":" + config.port + "/update/" + app
+    console.log(url);
+    request(url, function () {});
+});
+
