@@ -125,6 +125,8 @@ var mailer = {
     };
 }());
 
+var queue = [];
+var working = false;
 function resolve(path) {
     var app;
     Object.keys(config.apps).some(function (appName) {
@@ -172,6 +174,21 @@ function deployApp(app, cb) {
     }
 }
 
+function handleDeploy(err) {
+    console.log('');
+    process.chdir(cwd);
+    if (err) {
+        console.log("Build failed for " + app.name);
+        console.log(err);
+        mailer.send({error: err, appName: app.name});
+    } else {
+        console.log("Successfully built: " + app.name);
+        mailer.send({appName: app.name});
+    }
+    if (queue.length) return deployApp(queue.pop(), handleDeploy);
+    working = false;
+}
+
 http.createServer(function (req, res) {
     if (req.path == "/favicon.ico") return res.end();
 
@@ -183,6 +200,9 @@ http.createServer(function (req, res) {
     else res.write('invalid');
     res.end();
 
+    if (working) return queue.push(app);
+    working = true;
+
     if (!app) return;
     console.log('');
     console.log('');
@@ -190,17 +210,7 @@ http.createServer(function (req, res) {
     console.log(new Date().toString());
     console.log('');
 
-    deployApp(app, function (err) {
-        console.log('');
-        process.chdir(cwd);
-        if (err) {
-            console.log("Build failed for " + app.name);
-            console.log(err);
-            return mailer.send({error: err, appName: app.name});
-        }
-        console.log("Successfully built: " + app.name);
-        return mailer.send({appName: app.name});
-    });
+    deployApp(app, handleDeploy);
 
 }).listen(config.port, config.host);
 
