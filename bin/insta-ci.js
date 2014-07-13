@@ -61,7 +61,7 @@ if ( ! fs.existsSync("workspace") ) fs.mkdirSync("workspace");
 if ( ! fs.existsSync("deployed") ) fs.mkdirSync("deployed");
 
 var config = require(process.cwd() + "/.instaci.json");
-if ( ! config.apps || ! Object.keys(config.apps).length ) return console.error("No apps specified.");
+if ( ! config.apps || ! Object.keys(config.apps).length ) throw new Error("No apps specified.");
 
 (function () {
     if ( ! config.host ) throw new Error("Missing host param.");
@@ -105,7 +105,7 @@ var mailer = {
     mailer.send = function (options) {
         var view; options.error ? view = config.mailer.views.error : view = config.mailer.views.success;
         jade.renderFile(view, {error: options.error ? options.error.message : null}, function (err, html) {
-            if (err) return console.error(err) ;
+            if (err) return console.log(err);
 
             var subject = "Build " + (options.error ? "failed: " : "successful: ") + options.appName;
     
@@ -117,7 +117,7 @@ var mailer = {
                     text: "Text version unavailable.",
                     html: html,
                 }, function (err) {
-                    if (err) return console.error(err);
+                    if (err) return console.log(err);
                     console.log( (options.error ? "Error" : "Success") + " email sent to " + recipient + "." );
                 });
             });
@@ -194,8 +194,8 @@ http.createServer(function (req, res) {
         console.log('');
         process.chdir(cwd);
         if (err) {
-            console.error("Build failed for " + app.name);
-            console.error(err);
+            console.log("Build failed for " + app.name);
+            console.log(err);
             return mailer.send({error: err, appName: app.name});
         }
         console.log("Successfully built: " + app.name);
