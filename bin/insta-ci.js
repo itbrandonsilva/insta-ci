@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 console.log('');
 
+var cwd = process.cwd();
+
 var http = require('http');
 var fs = require('fs');
 var exec = require('child_process').exec;
+var rimraf = require('rimraf');
+
 exec = function () {
     var orig = exec;
     return function (cmd, cb) {
@@ -37,14 +41,15 @@ if (program.new) {
         "host": "127.0.0.1",
         "port": 11001,
         "apps": {
-            "yourapp": {
-                "path": "/yourpath",
-                "start": "start.js",
-                "stop": "stop.js",
-                "build": "build.js",
-                "test": "test.js",
+            "my-app": {
+                "repository": "git@github.com:johndoe/my-app.git",
+                "build": "npm install; npm test;",
+                "install": "!s:deploy",
             },
         },
+        "scripts": {
+            "deploy": "echo 'Deploy';",
+        }
     }, null, '\t'));
     process.exit(0);
 }
@@ -52,11 +57,35 @@ if (program.new) {
 var debug = false;
 if (program.debug) debug = true;
 
-var config = require(process.cwd() + "/instaci/config.js");
+if ( ! fs.existsSync("workspace") ) fs.mkdirSync("workspace");
+if ( ! fs.existsSync("deployed") ) fs.mkdirSync("deployed");
+
+var config = require(process.cwd() + "/.instaci.json");
 if ( ! config.apps || ! Object.keys(config.apps).length ) return console.error("No apps specified.");
 
+(function () {
+    if ( ! config.host ) throw new Error("Missing host param.");
+    if ( ! config.port ) throw new Error("Missing port param.");
+    Object.keys(config.apps).forEach(function (appName) {
+        var app = config.apps[appName];
+        if ( ! app.repository ) throw new Error("App '" + appName + "' missing repository.");
+        if ( ! app.build ) throw new Error("App '" + appName + "' is missing a build script.");
+        if ( ! app.install ) throw new Error("App '" + appName + "' is missing a start script.");
+    });
+}());
+
+Object.keys(config.apps).forEach(function (appName) {
+    var app = config.apps[appName];
+    Object.keys(app).forEach(function (script) {
+        if (app[script].indexOf('!s:') == 0) {
+            var scriptName = app[script].slice(3, app[script].length);
+            if (config.scripts[scriptName]) app[script] = config.scripts[scriptName];
+        }
+    });
+});
+
 var mailer = {
-    send: function (options, cb) {cb()},
+    send: function (options, cb) { if (cb) cb() },
 };
 
 (function () {
@@ -96,26 +125,6 @@ var mailer = {
     };
 }());
 
-var cwd = process.cwd();
-
-var instaci = {
-    queue: [],
-    status: "",
-};
-
-(function () {
-    if ( ! config.host ) throw new Error("Missing host param.");
-    if ( ! config.port ) throw new Error("Missing port param.");
-    Object.keys(config.apps).forEach(function (appName) {
-        var app = config.apps[appName];
-        if ( ! app.path ) throw new Error("App '" + appName + "' missing path.");
-        if ( ! app.build ) throw new Error("App '" + appName + "' is missing a build script.");
-        if ( ! app.start ) throw new Error("App '" + appName + "' is missing a start script.");
-        if ( ! app.stop ) throw new Error("App '" + appName + "' is missing a start script.");
-        if ( ! app.test ) console.warn("WARNING: App '" + appName + "' is missing a test script.");
-    });
-}());
-
 function resolve(path) {
     var app;
     Object.keys(config.apps).some(function (appName) {
@@ -126,6 +135,41 @@ function resolve(path) {
         }
     });
     return app;
+}
+
+function deployApp(app, cb) {
+    try {
+        var cloneDir = cwd + '/workspace/' + app.name;
+        async.series([
+            function (cb) {
+                rimraf(cloneDir, function (err) {
+                    if (err) return cb(err);
+                    console.log('Cloning ' + app.name);
+                    exec('git clone ' + app.repository + ' ' + cloneDir, cb);
+                });
+            },
+            function (cb) { process.chdir(cloneDir); cb() },
+            function (cb) { console.log('Building ' + app.name); exec(app.build, cb); },
+            function (cb) { if ( ! app.stop ) return cb(); console.log('Stopping ' + app.name); exec(app.stop, cb); },
+            function (cb) {
+                console.log('Installing ' + app.name);
+                var deployDir = cwd + '/deployed/' + app.name;
+                rimraf(deployDir, function (err) {
+                    if (err) return cb(err);
+                    exec('mv ' + cloneDir + ' ' + deployDir, function (err) {
+                        if (err) return cb(err);
+                        process.chdir(deployDir);
+                        exec(app.install, cb);
+                    });
+                });
+            },
+        ], function (err) {
+            process.chdir(cwd); cb(err);
+        });
+    } catch (e) {
+        process.chdir(cwd);
+        return cb(e);
+    }
 }
 
 http.createServer(function (req, res) {
@@ -146,29 +190,18 @@ http.createServer(function (req, res) {
     console.log(new Date().toString());
     console.log('');
 
-    try {
-        process.chdir(app.path);
-        async.series([
-            function (cb) { console.log('Building ' + app.name); exec(app.build, cb); },
-            function (cb) { if ( ! app.test ) return cb(); console.log('Testing ' + app.name); exec(app.test, cb); },
-            function (cb) { console.log('Stopping ' + app.name); exec(app.stop, cb); },
-            function (cb) { console.log('Starting ' + app.name); exec(app.start, cb); },
-        ], function (err) {
-            console.log('');
-            process.chdir(cwd);
-            if (err) {
-                console.error("Build failed for " + app.name);
-                console.error(err);
-                return mailer.send({error: err, appName: app.name});
-            }
-            console.log("Successfully built: " + app.name);
-            return mailer.send({appName: app.name});
-        });
-    } catch (e) {
-        console.log("Caught exception: ");
-        console.log(e);
+    deployApp(app, function (err) {
+        console.log('');
         process.chdir(cwd);
-    }
+        if (err) {
+            console.error("Build failed for " + app.name);
+            console.error(err);
+            return mailer.send({error: err, appName: app.name});
+        }
+        console.log("Successfully built: " + app.name);
+        return mailer.send({appName: app.name});
+    });
+
 }).listen(config.port, config.host);
 
 console.log('Server running at http://' + config.host + ":" + config.port);
