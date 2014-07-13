@@ -140,6 +140,7 @@ function resolve(path) {
 }
 
 function deployApp(app, cb) {
+    console.log('----------------------');
     try {
         var cloneDir = cwd + '/workspace/' + app.name;
         async.series([
@@ -179,7 +180,9 @@ function handleDeploy(err, app) {
     process.chdir(cwd);
     if (err) {
         console.log("Build failed for " + app.name);
+        console.log('');
         console.log(err);
+        console.log('');
         mailer.send({error: err, appName: app.name});
     } else {
         console.log("Successfully built: " + app.name);
@@ -192,7 +195,7 @@ function handleDeploy(err, app) {
 http.createServer(function (req, res) {
     if (req.path == "/favicon.ico") return res.end();
 
-    console.log(req.method + ": " + req.url);
+    console.log(new Date().toString() + "    " + req.method + ": " + req.url);
 
     var app = resolve(req.url);
     res.writeHead(200);
@@ -205,12 +208,6 @@ http.createServer(function (req, res) {
     working = true;
 
     process.nextTick(function () {
-        console.log('');
-        console.log('');
-        console.log('----------------------');
-        console.log(new Date().toString());
-        console.log('');
-
         deployApp(app, handleDeploy);
     });
 
