@@ -166,15 +166,15 @@ function deployApp(app, cb) {
                 });
             },
         ], function (err) {
-            process.chdir(cwd); cb(err);
+            process.chdir(cwd); cb(err, app);
         });
     } catch (e) {
         process.chdir(cwd);
-        return cb(e);
+        return cb(e, app);
     }
 }
 
-function handleDeploy(err) {
+function handleDeploy(err, app) {
     console.log('');
     process.chdir(cwd);
     if (err) {
