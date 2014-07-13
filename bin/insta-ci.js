@@ -150,7 +150,7 @@ function deployApp(app, cb) {
             },
             function (cb) { process.chdir(cloneDir); cb() },
             function (cb) { console.log('Building ' + app.name); exec(app.build, cb); },
-            function (cb) { if ( ! app.stop ) return cb(); console.log('Stopping ' + app.name); exec(app.stop, cb); },
+            function (cb) { if ( ! app.preinstall ) return cb(); console.log('Preinstalling ' + app.name); exec(app.preinstall, cb); },
             function (cb) {
                 console.log('Installing ' + app.name);
                 var deployDir = cwd + '/deployed/' + app.name;
