@@ -187,6 +187,7 @@ function handleDeploy(err, app) {
         console.log("Successfully built: " + app.name);
         mailer.send({appName: app.name});
     }
+    console.log("-----------------------------");
     if (queue.length) return deployApp(queue.pop(), handleDeploy);
     working = false;
 }
