@@ -140,7 +140,6 @@ function resolve(path) {
 }
 
 function deployApp(app, cb) {
-    console.log('----------------------');
     try {
         var cloneDir = cwd + '/workspace/' + app.name;
         async.series([
