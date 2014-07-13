@@ -199,18 +199,20 @@ http.createServer(function (req, res) {
     if (app) res.write('ok');
     else res.write('invalid');
     res.end();
+    if (!app) return;
 
-    if (working) return queue.push(app);
+    if (working) { console.log("Queuing up " + app.name); return queue.push(app); }
     working = true;
 
-    if (!app) return;
-    console.log('');
-    console.log('');
-    console.log('----------------------');
-    console.log(new Date().toString());
-    console.log('');
+    process.nextTick(function () {
+        console.log('');
+        console.log('');
+        console.log('----------------------');
+        console.log(new Date().toString());
+        console.log('');
 
-    deployApp(app, handleDeploy);
+        deployApp(app, handleDeploy);
+    });
 
 }).listen(config.port, config.host);
 
