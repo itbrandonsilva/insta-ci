@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 console.log('');
 
-var cwd = process.cwd();
-
 var http = require('http');
 var fs = require('fs');
 var exec = require('child_process').exec;
 var rimraf = require('rimraf');
+
+var cwd = process.cwd();
+var cfgDir = cwd;
+var cfgName = ".instaci.json";
+var cfgPath = cfgDir + "/" + cfgName;
 
 exec = function () {
     var orig = exec;
@@ -35,11 +38,11 @@ var nodemailer = require('nodemailer');
 var jade = require('jade');
 
 if (program.new) {
-    var cfgPath = process.cwd() + "/.instaci.json";
     console.log("Writing insta-ci config: " + cfgPath);
     var result = fs.writeFileSync(cfgPath, JSON.stringify({
         "host": "127.0.0.1",
         "port": 11001,
+        "admin": true,
         "apps": {
             "my-app": {
                 "repository": "git@github.com:johndoe/my-app.git",
@@ -60,28 +63,48 @@ if (program.debug) debug = true;
 if ( ! fs.existsSync("workspace") ) fs.mkdirSync("workspace");
 if ( ! fs.existsSync("deployed") ) fs.mkdirSync("deployed");
 
-var config = require(process.cwd() + "/.instaci.json");
-if ( ! config.apps || ! Object.keys(config.apps).length ) throw new Error("No apps specified.");
+var init = true;
+var config = null;
+function loadConfig() {
 
-(function () {
-    if ( ! config.host ) throw new Error("Missing host param.");
-    if ( ! config.port ) throw new Error("Missing port param.");
-    Object.keys(config.apps).forEach(function (appName) {
-        var app = config.apps[appName];
-        if ( ! app.repository ) throw new Error("App '" + appName + "' missing repository.");
-        if ( ! app.build ) throw new Error("App '" + appName + "' is missing a build script.");
-        if ( ! app.install ) throw new Error("App '" + appName + "' is missing a start script.");
-    });
-}());
+    var error = null;
+    function ret(err) {
+        if ( init ) throw err;
+        error = err;
+        return console.error(err);
+    }
 
-Object.keys(config.apps).forEach(function (appName) {
-    var app = config.apps[appName];
-    Object.keys(app).forEach(function (script) {
-        if (app[script].indexOf('!s:') == 0) {
-            var scriptName = app[script].slice(3, app[script].length);
-            if (config.scripts[scriptName]) app[script] = config.scripts[scriptName];
-        }
+    var cfg = require(cfgPath);
+    if ( ! cfg.apps || ! Object.keys(cfg.apps).length ) return ret(new Error("No apps specified."));
+    if ( ! cfg.host ) return ret(new Error("Missing host param."));
+    if ( ! cfg.port ) return ret(new Error("Missing port param."));
+    Object.keys(cfg.apps).forEach(function (appName) {
+        var app = cfg.apps[appName];
+        if ( ! app.repository ) return ret(new Error("App '" + appName + "' missing repository."));
+        if ( ! app.build ) return ret(new Error("App '" + appName + "' is missing a build script."));
+        if ( ! app.install ) return ret(new Error("App '" + appName + "' is missing an install script."));
     });
+
+    Object.keys(cfg.apps).forEach(function (appName) {
+        var app = cfg.apps[appName];
+        Object.keys(app).forEach(function (script) {
+            if (app[script].indexOf('!s:') == 0) {
+                var scriptName = app[script].slice(3, app[script].length);
+                if (cfg.scripts[scriptName]) app[script] = cfg.scripts[scriptName];
+                else ret(new Error('Invalid script: ' + scriptName));
+            }
+        });
+    });
+
+    if ( ! error ) config = cfg;
+    init = false;
+};
+console.log("Loading " + cfgPath);
+loadConfig();
+fs.watchFile(cfgPath, {interval: 2000}, function () {
+    console.log("Configuration update detected."); 
+    if (working) return console.log("Currently building an application; configuration update will be deferred until the build is resolved.");
+    loadConfig();
 });
 
 var mailer = {
@@ -190,7 +213,12 @@ function handleDeploy(err, app) {
     console.log("-----------------------------");
     if (queue.length) return deployApp(queue.pop(), handleDeploy);
     working = false;
+    loadConfig();
 }
+
+/* if (config.admin) http.createServer(function (req, res) {
+    var html;
+}).listen(config.port, config.host); */
 
 http.createServer(function (req, res) {
     if (req.path == "/favicon.ico") return res.end();
