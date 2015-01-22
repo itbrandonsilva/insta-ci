@@ -13,8 +13,8 @@ ex.startServer = function (config, deploy) {
         var app = instaci.resolveRequest(req.url, config);
 
         res.writeHead(200);
-        if (app) res.send('ok');
-        else { res.send('invalid-app'); return; }
+        if (app) { res.write('ok'); res.end(); }
+        else { res.write('invalid-app'); res.end(); return; }
 
         return instaci.queueApp(app);
     }).listen(config.port, config.host);
