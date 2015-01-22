@@ -23,7 +23,7 @@ exec = (function () {
 
 ex.exec = exec;
 
-ex.writeBlankConfig = function (path) {
+ex.writeNewConfig = function (path) {
     console.log("Writing insta-ci config: " + path);
     var result = fs.writeFileSync(path, JSON.stringify({
         "host": "127.0.0.1",
