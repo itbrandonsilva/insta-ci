@@ -14,6 +14,6 @@
     "winston": "^0.7.3"
   },
   "bin": {
-    "insta-ci": "./bin/insta-ci.js"
+    "insta-ci": "./src/main.js"
   }
 }
