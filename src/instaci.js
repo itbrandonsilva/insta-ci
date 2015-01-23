@@ -64,9 +64,9 @@ ex.deployApp = function (app, cb) {
                     util.exec('git clone ' + app.repository + ' ' + cloneDir, cb);
                 }); 
             },  
-            function (cb) { process.chdir(cloneDir); cb() },
-            function (cb) { console.log('Building ' + app.name); util.exec(app.build, cb); },
-            function (cb) { if ( ! app.preinstall ) return cb(); console.log('Preinstalling ' + app.name); util.exec(app.preinstall, cb); },
+            //function (cb) { process.chdir(cloneDir); cb() },
+            function (cb) { console.log('Building ' + app.name); util.exec(app.build, {cwd: cloneDir}, cb); },
+            //function (cb) { if ( ! app.preinstall ) return cb(); console.log('Preinstalling ' + app.name); util.exec(app.preinstall, cb); },
             function (cb) {
                 console.log('Installing ' + app.name);
                 rimraf(deployDir, function (err) {
@@ -74,7 +74,7 @@ ex.deployApp = function (app, cb) {
                     util.exec('mv ' + cloneDir + ' ' + deployDir, function (err) {
                         if (err) return cb(err);
                         process.chdir(deployDir);
-                        util.exec(app.install, cb);
+                        util.exec(app.install, {cwd: deployDir}, cb);
                     }); 
                 }); 
             },  
