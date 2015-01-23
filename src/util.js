@@ -8,8 +8,9 @@ var debug = false;
 
 exec = (function () {
     var orig = exec;
-    return function (cmd, cb) {
-        orig.call(this, cmd, function (err, stdout, stderr) {
+    return function (cmd, options, cb) {
+        options = options || {};
+        orig.call(this, cmd, options, function (err, stdout, stderr) {
             if (debug) {
                 console.log("Error: "); console.log(err);
                 console.log("stdout: "); console.log(stdout);
