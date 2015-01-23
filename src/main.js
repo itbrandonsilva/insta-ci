@@ -11,6 +11,7 @@ var program = require('commander')
     .version('0.0.1')
     .option('-n, --new', 'Create config file.')
     .option('-d, --debug', 'Print debug information to the console.')
+    .option('-b, --build', 'Build all apps on startup.')
     .parse(process.argv);
 
 var cwd     = process.cwd();
@@ -32,4 +33,4 @@ if ( ! fs.existsSync("deployed") ) fs.mkdirSync("deployed");
 var config = instaci.loadConfig(cfgPath, true);
 if ( ! config ) return console.error("Configuration failed to load.");
 
-server.startServer(config, true);
+server.startServer(config, program.build);
