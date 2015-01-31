@@ -101,7 +101,7 @@ ex.handleDeploy = function (err, app) {
         //mailer.send({appName: app.name});
     }   
     console.log("-----------------------------");
-    if (queue.length) return deployApp(queue.pop(), ex.handleDeploy);
+    if (queue.length) return ex.deployApp(queue.pop(), ex.handleDeploy);
     working = false;
 }
 
