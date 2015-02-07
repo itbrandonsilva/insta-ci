@@ -18,6 +18,7 @@ var CI = function (cfgPath) {
 }
 
 CI.prototype.loadConfig = function (cfgPath, isBooting) {
+    var self = this;
     var config = require(cfgPath);
     var error = null;
 
