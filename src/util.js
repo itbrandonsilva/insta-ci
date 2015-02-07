@@ -7,6 +7,8 @@ var ex = module.exports;
 
 var debug = false;
 
+var config = require(process.cwd() + "/.instaci.json");
+
 exec = (function () {
     var orig = exec;
     return function (cmd, options, cb) {
@@ -49,9 +51,11 @@ ex.enableDebug = function () {
 }
 
 ex.http = {
-    update: function (host, port, appName) {
-        var url = "http://" + host + ":" + port + "/update/" + appName;
+    update: function (appName, cb) {
+        if ( !config.port || !config.host ) throw new Error('"host" or "port" missing from .instaci.json.');
+        var url = "http://" + config.host + ":" + config.port + "/update/" + appName;
         request(url, function () {});
+        return url;
     }
 }
 

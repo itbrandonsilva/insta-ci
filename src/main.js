@@ -7,30 +7,35 @@ var CI      = require("./instaci");
 
 var program = require('commander')
     .version('0.0.1')
-    .option('-n, --new', 'Create config file.')
-    .option('-d, --debug', 'Print debug information to the console.')
-    .option('-b, --build', 'Build all apps on startup.')
+    .option('-n, --new', 'Create config file')
+    .option('-d, --debug', 'Print debug information to the console')
+    .option('-b, --build', 'Build all apps on startup')
+    .option('-u, --update [app]', 'Update specified app')
     .parse(process.argv);
 
 var cwd     = process.cwd();
 var cfgName = ".instaci.json";
 var cfgPath = cwd + "/" + cfgName;
 
-if (program.new) {
-    util.writeNewConfig(cfgPath);
-    process.exit(0);
-}
+(function () {
+    if (program.update) {
+        console.log("HTTP: " + util.http.update(program.update) + "\n");
+        return;
+    }
 
-if (program.debug) {
-    util.enableDebug();
-}
+    if (program.new) {
+        util.writeNewConfig(cfgPath);
+        return;
+    }
 
-if ( ! fs.existsSync("workspace") ) fs.mkdirSync("workspace");
-if ( ! fs.existsSync("deployed") ) fs.mkdirSync("deployed");
+    if (program.debug) {
+        util.enableDebug();
+    }
 
-console.log('');
-//var config = instaci.loadConfig(cfgPath, true);
-//if ( ! config ) return console.error("Configuration failed to load.");
+    if ( ! fs.existsSync("workspace") ) fs.mkdirSync("workspace");
+    if ( ! fs.existsSync("deployed") ) fs.mkdirSync("deployed");
 
-var ci = new CI(cfgPath, true);
-ci.startHttpServer(program.build);
+    console.log('');
+    var ci = new CI(cfgPath, true);
+    ci.startHttpServer(program.build);
+}());

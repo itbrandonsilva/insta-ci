@@ -7,40 +7,50 @@ var cwd = process.cwd();
 
 //var ex = module.exports;
 
-var CI = function (cfgPath, isInitializing) {
-    var config = {};
-    var error = null;
-
+var CI = function (cfgPath) {
+    this._starting = true;
+    this.config = {};
     this._queue = [];
     this._working = false;
 
-    function handleError(err) {
-        if ( isInitializing ) throw err;
-        error = err;
-        return console.error(err);
-    }
+    this.loadConfig(cfgPath, true);
+    this.watchConfig(cfgPath);
+}
 
+CI.prototype.loadConfig = function (cfgPath, isBooting) {
     var config = require(cfgPath);
-    if ( ! config.apps || ! Object.keys(config.apps).length ) return handleError(new Error("No apps specified."));
-    if ( ! config.host ) return handleError(new Error("Missing host param."));
-    if ( ! config.port ) return handleError(new Error("Missing port param."));
+    var error = null;
+
+    if ( ! config.apps || ! Object.keys(config.apps).length )  error = self.error(new Error("No apps specified."));
+    if ( ! config.host )                                       error = self.error(new Error("Missing host param."));
+    if ( ! config.port )                                       error = self.error(new Error("Missing port param."));
     Object.keys(config.apps).forEach(function (appName) {
         var app = config.apps[appName];
-        if ( ! app.repository ) return handleError(new Error("App '" + appName + "' missing repository."));
-        if ( ! app.build ) return handleError(new Error("App '" + appName + "' is missing a build script."));
-        if ( ! app.install ) return handleError(new Error("App '" + appName + "' is missing an install script."));
+        if ( ! app.repository )                                error = self.error(new Error("App '" + appName + "' missing repository."));
+        if ( ! app.build )                                     error = self.error(new Error("App '" + appName + "' is missing a build script."));
+        if ( ! app.install )                                   error = self.error(new Error("App '" + appName + "' is missing an install script."));
+
         Object.keys(app).forEach(function (script) {
             if (app[script].indexOf('!s:') == 0) {
                 var scriptName = app[script].slice(3);
                 if (config.scripts[scriptName]) app[script] = config.scripts[scriptName];
-                else handleError(new Error('Invalid script: ' + scriptName));
+                else                                           error = self.error(new Error('Invalid script: ' + scriptName));
             }
         });
     });
 
-    if ( ! config ) throw new Error("Configuration failed to load.");
-    if ( ! error ) this.config = config;
+    if ( ! error ) {
+        this.config = config;
+        console.log("Configuration loaded.");
+        this._starting = false;
+    }
 }
+
+CI.prototype.error = function (err) {
+    if ( this._starting ) throw err;
+    console.error(err);
+    return err;
+};
 
 CI.prototype.startHttpServer = function (deployApps) {
     var self = this;
@@ -54,7 +64,7 @@ CI.prototype.startHttpServer = function (deployApps) {
         console.log('');
 
         if (deployApps) Object.keys(self.config.apps).forEach(function (app) {
-            util.http.update(self.config.host, self.config.port, app);
+            util.http.update(app);
         }); 
     });
 }
@@ -145,15 +155,14 @@ CI.prototype.executeRequest = function (req, res) {
     }
 };
 
-module.exports = CI;
-
-/* ex.watchConfig = function (cfgPath, cb) {
+CI.prototype.watchConfig = function (cfgPath) {
     var self = this;
 
     fs.watchFile(cfgPath, {interval: 2000}, function () {
         console.log("Configuration update detected."); 
-        if (this._working) return console.log("Currently building an application; configuration update will be deferred until the build is resolved.");
-        var config = ex.loadConfig(cfgPath);
-        cb(null, config);
+        if (this._working) return console.log("Currently deploying an application; configuration updates will be applied to future deployments.");
+        self.loadConfig(cfgPath);
     });
-}; */
+};
+
+module.exports = CI;
