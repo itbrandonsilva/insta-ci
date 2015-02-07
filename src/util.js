@@ -7,7 +7,13 @@ var ex = module.exports;
 
 var debug = false;
 
-var config = require(process.cwd() + "/.instaci.json");
+try {
+    var config = require(process.cwd() + "/.instaci.json");
+} catch (err) {
+    console.error('.instaci.json not found in working directory. Use "insta-ci --new" to create one.');
+    console.log('');
+    process.exit(1);
+}
 
 exec = (function () {
     var orig = exec;
