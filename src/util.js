@@ -2,6 +2,7 @@
 
 var fs = require("fs");
 var exec = require('child_process').exec;
+var request = require('request');
 var ex = module.exports;
 
 var debug = false;
@@ -45,6 +46,13 @@ ex.writeNewConfig = function (path) {
 
 ex.enableDebug = function () {
     debug = true;
+}
+
+ex.http = {
+    update: function (host, port, appName) {
+        var url = "http://" + host + ":" + port + "/update/" + appName;
+        request(url, function () {});
+    }
 }
 
 /*ex.plugin = function (module) {

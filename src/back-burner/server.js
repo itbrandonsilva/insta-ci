@@ -23,7 +23,6 @@ ex.startServer = function (config, deploy) {
     console.log('');
 
     if (deploy) Object.keys(config.apps).forEach(function (app) {
-        var url = "http://" + config.host + ":" + config.port + "/update/" + app;
-        request(url, function () {});
+        util.http.update(config.host, config.port, app);
     });
 }

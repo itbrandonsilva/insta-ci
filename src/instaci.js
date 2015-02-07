@@ -1,17 +1,18 @@
+var http = require('http');
 var fs = require('fs');
-var async = require("async");
+var async = require('async');
 var rimraf = require('rimraf');
-var util = require("./util");
+var util = require('./util');
 var cwd = process.cwd();
 
-var queue = [];
-var working = false;
+//var ex = module.exports;
 
-var ex = module.exports;
-
-ex.loadConfig = function (cfgPath, isInitializing) {
+var CI = function (cfgPath, isInitializing) {
     var config = {};
     var error = null;
+
+    this._queue = [];
+    this._working = false;
 
     function handleError(err) {
         if ( isInitializing ) throw err;
@@ -37,22 +38,44 @@ ex.loadConfig = function (cfgPath, isInitializing) {
         });
     });
 
-    if ( ! error ) return config;
-};
+    if ( ! config ) throw new Error("Configuration failed to load.");
+    if ( ! error ) this.config = config;
+}
 
-ex.queueApp = function (app) {
-    if (working) {
-        console.log("Queuing up " + app.name);
-        return queue.push(app);
-    }
+CI.prototype.startHttpServer = function (deployApps) {
+    var self = this;
 
-    working = true;
-    process.nextTick(function () {
-        ex.deployApp(app, ex.handleDeploy);
+    http.createServer(function (req, res) {
+        if (req.path == "/favicon.ico") return res.end();
+        console.log(new Date().toString() + "    " + req.method + ": " + req.url);
+        self.executeRequest(req, res);
+    }).listen(this.config.port, this.config.host, function () {
+        console.log('Server running at http://' + self.config.host + ":" + self.config.port);
+        console.log('');
+
+        if (deployApps) Object.keys(self.config.apps).forEach(function (app) {
+            util.http.update(self.config.host, self.config.port, app);
+        }); 
     });
 }
 
-ex.deployApp = function (app, cb) {
+CI.prototype.queueDeployment = function (app) {
+    var self = this;
+
+    if (this._working) {
+        console.log("Queuing up " + app.name);
+        return this._queue.push(app);
+    }
+
+    this._working = true;
+    process.nextTick(function () {
+        self.deployApp(app, self.resolveDeploy);
+    });
+}
+
+CI.prototype.deployApp = function (app, cb) {
+    var self = this;
+
     try {
         var cloneDir  = cwd + '/workspace/' + app.name;
         var deployDir = cwd + '/deployed/'  + app.name;
@@ -64,9 +87,7 @@ ex.deployApp = function (app, cb) {
                     util.exec('git clone ' + app.repository + ' ' + cloneDir, cb);
                 }); 
             },  
-            //function (cb) { process.chdir(cloneDir); cb() },
             function (cb) { console.log('Building ' + app.name); util.exec(app.build, {cwd: cloneDir}, cb); },
-            //function (cb) { if ( ! app.preinstall ) return cb(); console.log('Preinstalling ' + app.name); util.exec(app.preinstall, cb); },
             function (cb) {
                 console.log('Installing ' + app.name);
                 rimraf(deployDir, function (err) {
@@ -80,15 +101,15 @@ ex.deployApp = function (app, cb) {
             },  
         ], function (err) {
             process.chdir(cwd);
-            cb(err, app);
+            cb.call(self, err, app);
         }); 
     } catch (err) {
         process.chdir(cwd);
-        cb(err, app);
+        cb.call(self, err, app);
     } 
 }
 
-ex.handleDeploy = function (err, app) {
+CI.prototype.resolveDeploy = function (err, app) {
     console.log('');
     if (err) {
         console.log("Build failed for " + app.name);
@@ -101,27 +122,38 @@ ex.handleDeploy = function (err, app) {
         //mailer.send({appName: app.name});
     }   
     console.log("-----------------------------");
-    if (queue.length) return ex.deployApp(queue.pop(), ex.handleDeploy);
-    working = false;
+    if (this._queue.length) return this.deployApp(this._queue.pop(), this.resolveDeploy);
+    this._working = false;
 }
 
-ex.resolveRequest = function (urlPath, config) {
+CI.prototype.executeRequest = function (req, res) {
+    var self = this;
+
     var app;
-    Object.keys(config.apps).some(function (appName) {
-        if (urlPath == "/update/" + appName) {
-            app = config.apps[appName];
+    Object.keys(this.config.apps).some(function (appName) {
+        if (req.url == "/update/" + appName) {
+            app = self.config.apps[appName];
             app.name = appName;
+            res.writeHead(200); res.write('updating ' + appName); res.end();
+            self.queueDeployment(app);
             return true;
         }
     });
-    return app;
+
+    if ( ! app ) {
+        res.write('invalid-app'); res.end();
+    }
 };
 
-ex.watchConfig = function (cfgPath, cb) {
+module.exports = CI;
+
+/* ex.watchConfig = function (cfgPath, cb) {
+    var self = this;
+
     fs.watchFile(cfgPath, {interval: 2000}, function () {
         console.log("Configuration update detected."); 
-        if (working) return console.log("Currently building an application; configuration update will be deferred until the build is resolved.");
+        if (this._working) return console.log("Currently building an application; configuration update will be deferred until the build is resolved.");
         var config = ex.loadConfig(cfgPath);
         cb(null, config);
     });
-};
+}; */

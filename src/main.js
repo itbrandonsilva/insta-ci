@@ -1,11 +1,9 @@
 #!/usr/bin/env node
-console.log('');
 
 var fs = require("fs");
 
-var server  = require("./server");
 var util    = require("./util");
-var instaci = require("./instaci");
+var CI      = require("./instaci");
 
 var program = require('commander')
     .version('0.0.1')
@@ -30,7 +28,9 @@ if (program.debug) {
 if ( ! fs.existsSync("workspace") ) fs.mkdirSync("workspace");
 if ( ! fs.existsSync("deployed") ) fs.mkdirSync("deployed");
 
-var config = instaci.loadConfig(cfgPath, true);
-if ( ! config ) return console.error("Configuration failed to load.");
+console.log('');
+//var config = instaci.loadConfig(cfgPath, true);
+//if ( ! config ) return console.error("Configuration failed to load.");
 
-server.startServer(config, program.build);
+var ci = new CI(cfgPath, true);
+ci.startHttpServer(program.build);
