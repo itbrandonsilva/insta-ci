@@ -3,7 +3,6 @@ var fs = require('fs');
 var async = require('async');
 var rimraf = require('rimraf');
 var util = require('./util');
-var cwd = process.cwd();
 
 //var ex = module.exports;
 
@@ -11,7 +10,6 @@ var CI = function (cfgPath) {
     this._starting = true;
     this.config = {};
     this._queue = [];
-    this._working = false;
 
     this.loadConfig(cfgPath, true);
     this.watchConfig(cfgPath);
@@ -70,53 +68,37 @@ CI.prototype.startHttpServer = function (deployApps) {
     });
 }
 
-CI.prototype.queueDeployment = function (app) {
-    var self = this;
-
-    if (this._working) {
-        console.log("Queuing up " + app.name);
-        return this._queue.push(app);
-    }
-
-    this._working = true;
-    process.nextTick(function () {
-        self.deployApp(app, self.resolveDeploy);
-    });
-}
 
 CI.prototype.deployApp = function (app, cb) {
     var self = this;
 
     try {
-        var cloneDir  = cwd + '/workspace/' + app.name;
-        var deployDir = cwd + '/deployed/'  + app.name;
+        var cloneDir  = process.cwd() + '/workspace/' + app.name;
+        var deployDir = process.cwd() + '/deployed/'  + app.name;
         async.series([
             function (cb) {
                 rimraf(cloneDir, function (err) {
                     if (err) return cb(err);
                     console.log('Cloning ' + app.name);
-                    util.exec('git clone ' + app.repository + ' ' + cloneDir, cb);
+                    util.runCmd('git clone ' + app.repository + ' ' + cloneDir, {cwd: process.cwd(), app: app.name}, cb);
                 }); 
             },  
-            function (cb) { console.log('Building ' + app.name); util.exec(app.build, {cwd: cloneDir}, cb); },
+            function (cb) { console.log('Building ' + app.name); util.runCmd(app.build, {cwd: cloneDir, app: app.name, log: true}, cb); },
             function (cb) {
                 console.log('Installing ' + app.name);
                 rimraf(deployDir, function (err) {
                     if (err) return cb(err);
-                    util.exec('mv ' + cloneDir + ' ' + deployDir, function (err) {
+                    util.runCmd('mv ' + cloneDir + ' ' + deployDir, {cwd: process.cwd(), app: app.name}, function (err) {
                         if (err) return cb(err);
-                        process.chdir(deployDir);
-                        util.exec(app.install, {cwd: deployDir}, cb);
+                        util.runCmd(app.install, {cwd: deployDir, app: app.name, log: true}, cb);
                     }); 
                 }); 
             },  
         ], function (err) {
-            process.chdir(cwd);
-            cb.call(self, err, app);
+            self.resolveDeploy(err, app);
         }); 
     } catch (err) {
-        process.chdir(cwd);
-        cb.call(self, err, app);
+        self.resolveDeploy(err, app);
     } 
 }
 
@@ -131,10 +113,10 @@ CI.prototype.resolveDeploy = function (err, app) {
     } else {
         console.log("Successfully built: " + app.name);
         //mailer.send({appName: app.name});
-    }   
+    }
     console.log("-----------------------------");
     if (this._queue.length) return this.deployApp(this._queue.pop(), this.resolveDeploy);
-    this._working = false;
+    //this._working = false;
 }
 
 CI.prototype.executeRequest = function (req, res) {
@@ -146,7 +128,7 @@ CI.prototype.executeRequest = function (req, res) {
             app = self.config.apps[appName];
             app.name = appName;
             res.writeHead(200); res.write('updating ' + appName); res.end();
-            self.queueDeployment(app);
+            self.deployApp(app);
             return true;
         }
     });
@@ -160,10 +142,23 @@ CI.prototype.watchConfig = function (cfgPath) {
     var self = this;
 
     fs.watchFile(cfgPath, {interval: 2000}, function () {
-        console.log("Configuration update detected."); 
-        if (this._working) return console.log("Currently deploying an application; configuration updates will be applied to future deployments.");
         self.loadConfig(cfgPath);
+        console.log("Configuration update detected. Configuration updates will be applied to future deployments.");
     });
 };
+
+/*CI.prototype.queueDeployment = function (app) {
+    var self = this;
+
+    if (this._working) {
+        console.log("Queuing up " + app.name);
+        return this._queue.push(app);
+    }
+
+    this._working = true;
+    process.nextTick(function () {
+        self.deployApp(app, self.resolveDeploy);
+    });
+}*/
 
 module.exports = CI;
