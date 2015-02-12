@@ -25,17 +25,18 @@ CI.prototype.loadConfig = function (cfgPath, isBooting) {
     if ( ! config.port )                                       error = self.error(new Error("Missing port param."));
     Object.keys(config.apps).forEach(function (appName) {
         var app = config.apps[appName];
+        app.name = appName;
         if ( ! app.repository )                                error = self.error(new Error("App '" + appName + "' missing repository."));
         if ( ! app.build )                                     error = self.error(new Error("App '" + appName + "' is missing a build script."));
         if ( ! app.install )                                   error = self.error(new Error("App '" + appName + "' is missing an install script."));
 
-        Object.keys(app).forEach(function (script) {
-            if (app[script].indexOf('!s:') == 0) {
-                var scriptName = app[script].slice(3);
-                if (config.scripts[scriptName]) app[script] = config.scripts[scriptName];
-                else                                           error = self.error(new Error('Invalid script: ' + scriptName));
-            }
-        });
+        //Object.keys(app).forEach(function (script) {
+        //    if (app[script].indexOf('!s:') == 0) {
+        //        var scriptName = app[script].slice(3);
+        //        if (config.scripts[scriptName]) app[script] = config.scripts[scriptName];
+        //        else                                           error = self.error(new Error('Invalid script: ' + scriptName));
+        //    }
+        //});
     });
 
     if ( ! error ) {
@@ -62,38 +63,84 @@ CI.prototype.startHttpServer = function (deployApps) {
         console.log('Server running at http://' + self.config.host + ":" + self.config.port);
         console.log('');
 
-        if (deployApps) Object.keys(self.config.apps).forEach(function (app) {
-            util.http.update(app);
-        }); 
+        if (deployApps) self.deployApps();
+        else            self.startServices();
     });
 }
 
+CI.prototype.deployApps = function () {
+    for (var appName in this.config.apps) {
+        var app = this.config.apps[appName];
+        if (app.service) {
+            this.deployApp(app);
+        }
+    }
+}
 
-CI.prototype.deployApp = function (app, cb) {
+CI.prototype.startServices = function () {
+    for (var appName in this.config.apps) {
+        var app = this.config.apps[appName];
+        if (app.service) {
+            this.runApp(app);
+        }
+    }
+}
+
+CI.prototype.getCloneDir = function (appName) {
+    return process.cwd() + '/workspace/' + appName;
+}
+
+CI.prototype.getDeployDir = function (appName) {
+    return process.cwd() + '/deployed/' + appName;
+}
+
+CI.prototype.cloneRepository = function (app, cb) {
+    var cloneDir = this.getCloneDir(app.name);
+    rimraf(cloneDir, function (err) {
+        if (err) return cb(err);
+        console.log('Cloning ' + app.name);
+        util.runCmd('git clone ' + app.repository + ' ' + cloneDir, {cwd: process.cwd(), app: app.name}, cb);
+    }); 
+}
+
+CI.prototype.buildApp = function (app, cb) {
+    var cloneDir = this.getCloneDir(app.name);
+    this.cloneRepository(app, function (err) {
+        if (err) return cb(err);
+        console.log('Building ' + app.name);
+        util.runCmd(app.build, {cwd: cloneDir, app: app.name, log: true}, cb); 
+    });
+}
+
+CI.prototype.runApp = function (app, cb) {
+    var deployDir = this.getDeployDir(app.name);
+    if ( ! fs.existsSync(deployDir) ) {
+        cb(new Error('"' + app.name + '" could not be run; needs to be built.'));
+        if (this.config.deployServices) this.deployApp(app);
+        return;
+    }
+    console.log('Running "' + app.name + '".');
+    util.runCmd(app.install, {cwd: deployDir, app: app.name, log: true}, cb);
+}
+
+CI.prototype.deployApp = function (app) {
     var self = this;
-
     try {
-        var cloneDir  = process.cwd() + '/workspace/' + app.name;
-        var deployDir = process.cwd() + '/deployed/'  + app.name;
         async.series([
             function (cb) {
-                rimraf(cloneDir, function (err) {
-                    if (err) return cb(err);
-                    console.log('Cloning ' + app.name);
-                    util.runCmd('git clone ' + app.repository + ' ' + cloneDir, {cwd: process.cwd(), app: app.name}, cb);
-                }); 
+                self.buildApp(app, cb);
             },  
-            function (cb) { console.log('Building ' + app.name); util.runCmd(app.build, {cwd: cloneDir, app: app.name, log: true}, cb); },
             function (cb) {
-                console.log('Installing ' + app.name);
+                var cloneDir = self.getCloneDir(app.name);
+                var deployDir = self.getDeployDir(app.name);
                 rimraf(deployDir, function (err) {
                     if (err) return cb(err);
-                    util.runCmd('mv ' + cloneDir + ' ' + deployDir, {cwd: process.cwd(), app: app.name}, function (err) {
-                        if (err) return cb(err);
-                        util.runCmd(app.install, {cwd: deployDir, app: app.name, log: true}, cb);
-                    }); 
-                }); 
-            },  
+                    util.runCmd('mv ' + cloneDir + ' ' + deployDir, {cwd: process.cwd(), app: app.name}, cb);
+                });
+            },
+            function (cb) { 
+                self.runApp(app, cb);
+            }
         ], function (err) {
             self.resolveDeploy(err, app);
         }); 
@@ -126,7 +173,6 @@ CI.prototype.executeRequest = function (req, res) {
     Object.keys(this.config.apps).some(function (appName) {
         if (req.url == "/update/" + appName) {
             app = self.config.apps[appName];
-            app.name = appName;
             res.writeHead(200); res.write('updating ' + appName); res.end();
             self.deployApp(app);
             return true;
