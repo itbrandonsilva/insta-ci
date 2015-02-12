@@ -4,6 +4,7 @@ var fs = require('fs');
 var path = require('path');
 var exec = require('child_process').exec;
 var spawn = require('child_process').spawn;
+var util = require('util');
 
 var async = require('async');
 var request = require('request');
@@ -20,6 +21,15 @@ try {
     process.exit(1);
 }
 
+console.log = (function () {
+    var log = fs.createWriteStream(path.join(process.cwd(), 'logs', 'insta-ci.log'), {encoding: 'utf8', flags: 'a'});
+    var original = console.log;
+    return function () {
+        log.write(util.format.apply(null, arguments) + '\n');
+        original.apply(null, arguments);
+    }
+}());
+
 ex.runCmd = function (cmd, options, cb) {
     var script = path.join(process.cwd(), 'workspace', 'scripts', uuid.v1());
     fs.writeFileSync(script, cmd, {encoding: 'utf8'});
@@ -31,10 +41,10 @@ ex.runCmd = function (cmd, options, cb) {
                 log.on('open', function () {
                     log.write('\n');
                     log.write('\n');
-                    log.write('\n----------------------------------------------------------------------------');
+                    log.write('\n------------------------------------------------------------------------');
                     log.write('\n-- ' + new Date().toString());
                     log.write('\n-- ' + cmd);
-                    log.write('\n----------------------------------------------------------------------------');
+                    log.write('\n------------------------------------------------------------------------');
                     log.write('\n');
                     log.write('\n');
                     cb(null, log);

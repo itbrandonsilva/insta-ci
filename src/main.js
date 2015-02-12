@@ -65,6 +65,9 @@ var cfgPath = cwd + '/' + cfgName;
     if ( ! fs.existsSync('logs') ) fs.mkdirSync('logs');
 
     console.log('');
+    console.log('------------------------------------------------------------------------------------------------');
+    console.log('------------------------------------------------------------------------------------------------');
+    console.log('');
     var ci = new CI(cfgPath, true);
     ci.startHttpServer(program.build);
 }());
